@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Separador de CT-e e NF-e - On Time</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuração das Cores Personalizadas On Time -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        acai: '#4B0082',
+                        laranja: '#FF5A00',
+                        laranjaHover: '#E04E00',
+                        acaiHover: '#3A0066'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome para ícones -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- SheetJS (Para exportar em Excel XLSX) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        td, th { white-space: nowrap; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans text-slate-800 flex flex-col">
+
+    <!-- Top Bar do Desenvolvedor -->
+    <div class="w-full bg-slate-900 text-slate-300 py-3 px-6 flex flex-col md:flex-row justify-between items-center text-sm shadow-md z-20">
+        <div class="font-black tracking-widest text-laranja uppercase mb-2 md:mb-0">
+            <i class="fas fa-truck-fast mr-2"></i> On Time Logística
+        </div>
+        <div class="tracking-wide">
+            <i class="fas fa-laptop-code text-laranja mr-2"></i>Developer 
+            <span class="text-white font-bold ml-1">Vitor Ramos</span> 
+            <span class="mx-2 text-slate-600">|</span> 
+            <span class="font-medium">Controladoria</span>
+        </div>
+    </div>
+
+    <!-- Conteúdo Principal -->
+    <div class="flex-grow p-4 md:p-8">
+        <div class="max-w-[98%] mx-auto bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-200 overflow-hidden relative z-10">
+            
+            <!-- Cabeçalho -->
+            <div class="bg-acai text-white p-6 border-b-4 border-laranja">
+                <h1 class="text-2xl md:text-3xl font-bold flex items-center">
+                    Processador de NF-e e CT-e
+                </h1>
+                <p class="mt-2 text-purple-100 opacity-90 text-sm md:text-base">
+                    Cole as 9 colunas. O sistema irá parear cada NF-e com o respetivo CT-e. Use os filtros abaixo para descarregar planilhas customizadas.
+                </p>
+            </div>
+
+            <div class="p-6 md:p-8">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+                    
+                    <!-- Área de Entrada -->
+                    <div class="flex flex-col">
+                        <label class="font-bold text-acai mb-2 flex items-center" for="inputData">
+                            <i class="fas fa-paste text-laranja mr-2"></i> 1. Cole os dados do sistema:
+                        </label>
+                        <textarea id="inputData" 
+                            class="w-full h-12 px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-0 focus:border-laranja focus:outline-none resize-none font-mono text-xs bg-slate-50 shadow-inner whitespace-nowrap overflow-hidden" 
+                            placeholder="Cole a tabela com as 9 colunas diretamente do Excel..."></textarea>
+                        
+                        <button id="processBtn" class="mt-4 bg-laranja hover:bg-laranjaHover text-white font-bold py-3 px-6 rounded-xl transition duration-200 shadow-md hover:shadow-lg flex justify-center items-center">
+                            <i class="fas fa-cogs mr-2"></i> Processar Dados
+                        </button>
+                    </div>
+
+                    <!-- Área de Saída (Texto) -->
+                    <div class="flex flex-col">
+                        <div class="flex justify-between items-end mb-2">
+                            <label class="font-bold text-acai flex items-center" for="outputData">
+                                <i class="fas fa-eye text-laranja mr-2"></i> 2. Resultado Bruto:
+                            </label>
+                            <span id="rowCountLabel" class="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md hidden">
+                                0 linhas
+                            </span>
+                        </div>
+                        <textarea id="outputData" 
+                            class="w-full h-12 px-4 py-3 border-2 border-slate-200 rounded-xl bg-purple-50 focus:outline-none resize-none font-mono text-xs shadow-inner text-acai whitespace-nowrap overflow-hidden" 
+                            readonly placeholder="O resultado tabulado aparecerá aqui apenas para conferência..."></textarea>
+                        
+                        <button id="clearDataBtn" disabled class="mt-4 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-xl transition duration-200 shadow-md hover:shadow-lg flex justify-center items-center">
+                            <i class="fas fa-eraser mr-2"></i> Limpar Dados
+                        </button>
+                    </div>
+
+                </div>
+
+                <hr class="my-10 border-slate-200">
+
+                <!-- Área de Filtros e Tabela -->
+                <div id="tableSection" class="opacity-50 pointer-events-none transition-opacity duration-300">
+                    
+                    <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                        <h2 class="text-xl font-bold text-acai flex items-center w-full md:w-auto">
+                            <i class="fas fa-filter text-laranja mr-2"></i> Filtros de Pesquisa
+                        </h2>
+                        
+                        <!-- Botão de Exportar XLSX -->
+                        <button id="exportBtn" disabled class="w-full md:w-auto bg-green-600 hover:bg-green-700 disabled:bg-slate-300 text-white font-bold py-2 px-6 rounded-lg transition duration-200 shadow-md flex justify-center items-center">
+                            <i class="fas fa-file-excel mr-2"></i> Baixar XLSX (.excel)
+                        </button>
+                    </div>
+
+                    <!-- Barra de Filtros -->
+                    <div class="bg-slate-100 p-4 rounded-xl border border-slate-200 mb-6 flex flex-wrap gap-4 items-end shadow-inner">
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Tipo de Filtro</label>
+                            <select id="filterType" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:border-laranja focus:outline-none bg-white">
+                                <option value="nfe">NF-e</option>
+                                <option value="cte">CT-e</option>
+                                <option value="contrato">Nº Contrato</option>
+                                <option value="numViagem">Nº Viagem</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Buscar por...</label>
+                            <input type="text" id="filterValue" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:border-laranja focus:outline-none" placeholder="Digite a busca...">
+                        </div>
+                        <div class="flex-1 min-w-[130px]">
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Data Emissão Inicial</label>
+                            <input type="date" id="filterDataIni" class="w-full p-2 border border-slate-300 rounded-lg text-sm text-slate-700 focus:border-laranja focus:outline-none">
+                        </div>
+                        <div class="flex-1 min-w-[130px]">
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Data Emissão Final</label>
+                            <input type="date" id="filterDataFim" class="w-full p-2 border border-slate-300 rounded-lg text-sm text-slate-700 focus:border-laranja focus:outline-none">
+                        </div>
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <button id="applyFilterBtn" class="flex-1 md:flex-none bg-laranja hover:bg-laranjaHover text-white px-4 py-2 rounded-lg font-bold transition">
+                                Filtrar
+                            </button>
+                            <button id="clearFilterBtn" class="flex-1 md:flex-none bg-slate-300 hover:bg-slate-400 text-slate-700 px-4 py-2 rounded-lg font-bold transition">
+                                Limpar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabela -->
+                    <div class="overflow-x-auto rounded-xl border-2 border-slate-200 shadow-sm max-h-[500px]">
+                        <table class="w-full text-sm text-left text-slate-600 relative">
+                            <thead class="text-xs text-white uppercase bg-acai sticky top-0 shadow-sm z-10">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3 font-bold border-r border-purple-800">Data Emissão</th>
+                                    <th scope="col" class="px-4 py-3 font-bold border-r border-purple-800">Nº Viagem</th>
+                                    <th scope="col" class="px-4 py-3 font-bold border-r border-purple-800">Contrato</th>
+                                    <th scope="col" class="px-4 py-3 font-bold border-r border-purple-800">Valor Frete</th>
+                                    <th scope="col" class="px-4 py-3 font-bold border-r border-purple-800">Data Quitação</th>
+                                    <th scope="col" class="px-4 py-3 font-bold border-r border-purple-800">Situação</th>
+                                    <th scope="col" class="px-4 py-3 font-bold border-r border-purple-800 text-laranja">NFe's</th>
+                                    <th scope="col" class="px-4 py-3 font-bold border-r border-purple-800">Município Destino</th>
+                                    <th scope="col" class="px-4 py-3 font-bold text-laranja">CT-e</th>
+                                </tr>
+                            </thead>
+                            <tbody id="previewTableBody">
+                                <tr class="bg-white">
+                                    <td colspan="9" class="px-6 py-12 text-center text-slate-400 italic">
+                                        Nenhum dado processado ainda.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container para Notificações (Toasts) -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <script>
+        // Variáveis Globais de Estado
+        let baseData = []; 
+        let filteredData = []; 
+
+        // Função para mostrar notificações (Toasts)
+        function showToast(message, type = 'error') {
+            const toast = document.createElement('div');
+            let bgClass = type === 'error' ? 'bg-red-600' : (type === 'warning' ? 'bg-amber-500' : 'bg-laranja');
+            let icon = type === 'error' ? 'fa-exclamation-circle' : (type === 'warning' ? 'fa-exclamation-triangle' : 'fa-check-circle');
+
+            toast.className = `${bgClass} text-white px-6 py-3 rounded-lg shadow-lg flex items-center transform transition-all duration-300 translate-y-10 opacity-0`;
+            toast.innerHTML = `<i class="fas ${icon} mr-3 text-lg"></i> <span class="font-medium">${message}</span>`;
+            
+            document.getElementById('toastContainer').appendChild(toast);
+            
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 10);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function cleanDocumentNumber(docNum) {
+            if (!docNum) return "";
+            return docNum.split('/')[0].replace(/^0+/, '').trim();
+        }
+
+        // Converte DD/MM/YYYY para Objeto Date (para comparar nos filtros)
+        function parseDateBR(dateStr) {
+            if(!dateStr) return null;
+            const parts = dateStr.split('/');
+            if(parts.length !== 3) return null;
+            return new Date(parts[2], parts[1]-1, parts[0]);
+        }
+
+        // Processa os dados da Textarea
+        function processData() {
+            const inputData = document.getElementById('inputData').value.trim();
+            
+            if (!inputData) {
+                showToast('Cole os dados na caixa 1 antes de processar.', 'error');
+                return;
+            }
+
+            const lines = inputData.split('\n');
+            baseData = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                const cols = line.split('\t');
+
+                // Pula cabeçalhos originais
+                if (cols[0].toLowerCase().includes('data emiss') || 
+                    (cols[1] && cols[1].toLowerCase().includes('viagem'))) {
+                    continue; 
+                }
+
+                const dataEmissao = cols[0]?.trim() || '';
+                const numViagem = cols[1]?.trim() || '';
+                const contrato = cols[2]?.trim() || '';
+                const valorFrete = cols[3]?.trim() || '';
+                const dataQuitacao = cols[4]?.trim() || '';
+                const situacao = cols[5]?.trim() || '';
+                const rawNfes = cols[6] || '';
+                const municipio = cols[7]?.trim() || '';
+                const rawCtes = cols[8] || '';
+
+                const nfesArray = rawNfes.split(',').map(n => n.trim()).filter(n => n !== "");
+                const ctesArray = rawCtes.split(';').map(c => c.trim()).filter(c => c !== "");
+
+                const maxItems = Math.max(nfesArray.length, ctesArray.length);
+                if (maxItems === 0) continue;
+
+                for (let j = 0; j < maxItems; j++) {
+                    baseData.push({
+                        dataEmissao, 
+                        numViagem, 
+                        contrato, 
+                        valorFrete, 
+                        dataQuitacao, 
+                        situacao, 
+                        nfe: cleanDocumentNumber(nfesArray[j]), 
+                        municipio, 
+                        cte: cleanDocumentNumber(ctesArray[j])
+                    });
+                }
+            }
+
+            if (baseData.length === 0) {
+                showToast('Não foi possível processar. Tabela inválida.', 'error');
+                return;
+            }
+
+            // Habilita a secção de tabela/filtros
+            document.getElementById('tableSection').classList.remove('opacity-50', 'pointer-events-none');
+            document.getElementById('clearDataBtn').disabled = false;
+            document.getElementById('exportBtn').disabled = false;
+            document.getElementById('rowCountLabel').classList.remove('hidden');
+
+            filteredData = [...baseData]; // Inicializa os filtrados com todos
+            updateUI();
+            showToast(`${baseData.length} registos pareados e prontos!`, 'success');
+        }
+
+        // Atualiza a Tabela e o Textarea baseando-se em `filteredData`
+        function updateUI() {
+            // 1. Atualiza Textarea
+            const outputLines = filteredData.map(item => 
+                [item.dataEmissao, item.numViagem, item.contrato, item.valorFrete, 
+                item.dataQuitacao, item.situacao, item.nfe, item.municipio, item.cte].join('\t')
+            );
+            document.getElementById('outputData').value = outputLines.join('\n');
+            
+            // Atualiza Label de contagem
+            document.getElementById('rowCountLabel').innerText = `${filteredData.length} linhas`;
+
+            // 2. Atualiza HTML da Tabela
+            const tbody = document.getElementById('previewTableBody');
+            let previewHTML = '';
+
+            if(filteredData.length === 0) {
+                previewHTML = `<tr><td colspan="9" class="px-6 py-8 text-center text-slate-500 font-bold bg-slate-50">Nenhum registo encontrado para este filtro.</td></tr>`;
+            } else {
+                const renderLimit = 150; // Renderiza no max 150 na tela pra não travar navegador
+                const dataToRender = filteredData.slice(0, renderLimit);
+
+                dataToRender.forEach(item => {
+                    previewHTML += `
+                        <tr class="bg-white border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                            <td class="px-4 py-2">${item.dataEmissao}</td>
+                            <td class="px-4 py-2 font-medium">${item.numViagem}</td>
+                            <td class="px-4 py-2">${item.contrato}</td>
+                            <td class="px-4 py-2 text-slate-500">${item.valorFrete}</td>
+                            <td class="px-4 py-2 text-slate-500">${item.dataQuitacao}</td>
+                            <td class="px-4 py-2"><span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">${item.situacao}</span></td>
+                            <td class="px-4 py-2 font-mono font-bold text-laranja bg-orange-50">${item.nfe}</td>
+                            <td class="px-4 py-2 truncate max-w-[150px]" title="${item.municipio}">${item.municipio}</td>
+                            <td class="px-4 py-2 font-mono font-bold text-acai bg-purple-50">${item.cte}</td>
+                        </tr>
+                    `;
+                });
+
+                if (filteredData.length > renderLimit) {
+                    previewHTML += `
+                        <tr class="bg-slate-100">
+                            <td colspan="9" class="px-6 py-4 text-center text-acai text-sm font-bold">
+                                + ${filteredData.length - renderLimit} registos ocultos na pré-visualização. <br>
+                                <span class="text-xs text-slate-500 font-normal">Eles ainda serão descarregados no Excel.</span>
+                            </td>
+                        </tr>`;
+                }
+            }
+            tbody.innerHTML = previewHTML;
+        }
+
+        // Lógica de Filtro
+        function applyFilters() {
+            if(baseData.length === 0) return;
+
+            const fType = document.getElementById('filterType').value;
+            const fValue = document.getElementById('filterValue').value.trim().toLowerCase();
+            const fDataIni = document.getElementById('filterDataIni').value; 
+            const fDataFim = document.getElementById('filterDataFim').value; 
+
+            filteredData = baseData.filter(item => {
+                let match = true;
+                
+                // Filtro Dinâmico: Verifica o campo selecionado em "Tipo de Filtro"
+                if(fValue) {
+                    if(!item[fType].toLowerCase().includes(fValue)) {
+                        match = false;
+                    }
+                }
+                
+                // Filtro de Datas
+                if(fDataIni || fDataFim) {
+                    const itemDate = parseDateBR(item.dataEmissao);
+                    if(itemDate) {
+                        itemDate.setHours(0,0,0,0);
+                        if(fDataIni) {
+                            const dIni = new Date(fDataIni + 'T00:00:00');
+                            if(itemDate < dIni) match = false;
+                        }
+                        if(fDataFim) {
+                            const dFim = new Date(fDataFim + 'T00:00:00');
+                            if(itemDate > dFim) match = false;
+                        }
+                    } else {
+                        match = false; 
+                    }
+                }
+                return match;
+            });
+
+            updateUI();
+            
+            if(filteredData.length === 0) {
+                showToast('Nenhum resultado para os filtros aplicados.', 'warning');
+            } else {
+                showToast(`Filtro aplicado: ${filteredData.length} resultados.`, 'success');
+            }
+        }
+
+        // Limpar Filtros
+        function clearFilters() {
+            document.getElementById('filterType').value = 'nfe';
+            document.getElementById('filterValue').value = '';
+            document.getElementById('filterDataIni').value = '';
+            document.getElementById('filterDataFim').value = '';
+            
+            filteredData = [...baseData];
+            updateUI();
+        }
+
+        // Exportar para XLSX (Excel) via SheetJS
+        function exportToXLSX() {
+            if(filteredData.length === 0) {
+                showToast('Não há dados para exportar.', 'error');
+                return;
+            }
+
+            const wsData = filteredData.map(item => ({
+                "Data Emissão": item.dataEmissao,
+                "Nº Viagem": item.numViagem,
+                "Nº Contrato PagBem": item.contrato,
+                "Valor de Frete": item.valorFrete,
+                "Data da Quitação": item.dataQuitacao,
+                "Situação da Viagem": item.situacao,
+                "NFe": item.nfe,
+                "Município de Destino": item.municipio,
+                "CT-e": item.cte
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(wsData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Dados Processados");
+
+            XLSX.writeFile(wb, "Relatorio_CTe_NFe.xlsx");
+            showToast('Ficheiro Excel gerado com sucesso!', 'success');
+        }
+
+        // Função de Limpar Todos os Dados
+        function clearAllData() {
+            // Limpa caixas de texto
+            document.getElementById('inputData').value = '';
+            document.getElementById('outputData').value = '';
+            
+            // Repõe variáveis
+            baseData = [];
+            filteredData = [];
+            
+            // Repõe a UI e desativa botões
+            document.getElementById('tableSection').classList.add('opacity-50', 'pointer-events-none');
+            document.getElementById('clearDataBtn').disabled = true;
+            document.getElementById('exportBtn').disabled = true;
+            
+            // Oculta contador
+            const rowLabel = document.getElementById('rowCountLabel');
+            rowLabel.classList.add('hidden');
+            rowLabel.innerText = '0 linhas';
+
+            // Limpa filtros e tabela
+            clearFilters();
+            document.getElementById('previewTableBody').innerHTML = `
+                <tr class="bg-white">
+                    <td colspan="9" class="px-6 py-12 text-center text-slate-400 italic">
+                        Nenhum dado processado ainda.
+                    </td>
+                </tr>
+            `;
+
+            showToast('Dados limpos com sucesso!', 'success');
+        }
+
+        // Event Listeners Principais
+        document.getElementById('processBtn').addEventListener('click', processData);
+        document.getElementById('applyFilterBtn').addEventListener('click', applyFilters);
+        document.getElementById('clearFilterBtn').addEventListener('click', clearFilters);
+        document.getElementById('exportBtn').addEventListener('click', exportToXLSX);
+        document.getElementById('clearDataBtn').addEventListener('click', clearAllData); // Novo Listener
+
+        // Permite "Enter" nos campos de texto pra buscar mais rápido
+        const inputs = ['filterValue', 'filterDataIni', 'filterDataFim'];
+        inputs.forEach(id => {
+            document.getElementById(id).addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') applyFilters();
+            });
+        });
+
+    </script>
+</body>
+</html>
